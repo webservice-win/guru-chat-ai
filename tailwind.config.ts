@@ -13,15 +13,19 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: "1rem",
       screens: {
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1280px",
         "2xl": "1400px",
       },
     },
     extend: {
       fontFamily: {
-        adarsholipi: ["Adarsholipi", "Noto Sans Bengali", "sans-serif"],
-        bangla: ["Adarsholipi", "Noto Sans Bengali", "sans-serif"],
+        bangla: ["var(--font-bangla)", "Noto Sans Bengali", "sans-serif"],
+        adarsholipi: ["var(--font-bangla)", "Noto Sans Bengali", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -97,6 +101,10 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateX(50px)" },
           "100%": { opacity: "1", transform: "translateX(0)" },
         },
+        "bounce-gentle": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-5px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -107,10 +115,17 @@ const config: Config = {
         sparkle: "sparkle 1.5s ease-in-out infinite",
         "slide-in-left": "slide-in-left 0.8s ease-out",
         "slide-in-right": "slide-in-right 0.8s ease-out",
+        "bounce-gentle": "bounce-gentle 2s ease-in-out infinite",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic": "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+      },
+      spacing: {
+        "safe-top": "env(safe-area-inset-top)",
+        "safe-bottom": "env(safe-area-inset-bottom)",
+        "safe-left": "env(safe-area-inset-left)",
+        "safe-right": "env(safe-area-inset-right)",
       },
     },
   },
