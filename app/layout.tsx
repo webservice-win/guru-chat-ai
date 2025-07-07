@@ -2,9 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Noto_Sans_Bengali } from "next/font/google"
 import "./globals.css"
-import { cn } from "@/lib/utils"
+import { ThemeProvider } from "@/components/theme-provider"
 
-const banglaFont = Noto_Sans_Bengali({
+const notoSansBengali = Noto_Sans_Bengali({
   subsets: ["bengali"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-bangla",
@@ -12,20 +12,24 @@ const banglaFont = Noto_Sans_Bengali({
 })
 
 export const metadata: Metadata = {
-  title: "বাংলার গুরু AI - উন্নত কৃত্রিম বুদ্ধিমত্তা সহায়ক",
-  description: "অত্যাধুনিক AI প্রযুক্তি দিয়ে বাংলা ভাষায় সৃজনশীল কাজ করুন",
-  generator: "v0.dev",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+  title: "বাংলার গুরু - AI চ্যাটবট",
+  description: "বাংলা ভাষায় AI সহায়ক - গল্প, কবিতা, সংবাদ এবং ভয়েস ওভার তৈরি করুন",
+  keywords: "বাংলা AI, চ্যাটবট, গল্প, কবিতা, সংবাদ, ভয়েস ওভার",
+    generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
-    <html lang="bn" className={banglaFont.variable}>
-      <body className={cn(banglaFont.className, "antialiased font-bangla")}>{children}</body>
+    <html lang="bn" className={notoSansBengali.variable}>
+      <body className={`${notoSansBengali.className} antialiased`}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

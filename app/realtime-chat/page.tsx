@@ -11,6 +11,7 @@ import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
+import { VoiceFeedback, VoiceStatus, VoiceWaveform } from "@/components/voice-feedback"
 
 interface Message {
   id: string
@@ -45,6 +46,7 @@ export default function RealtimeChatPage() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [userEmotion, setUserEmotion] = useState<"happy" | "sad" | "neutral" | "excited">("neutral")
+  const [voiceStatus, setVoiceStatus] = useState<"idle" | "listening" | "speaking" | "processing">("idle")
 
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
@@ -71,11 +73,23 @@ export default function RealtimeChatPage() {
       const transcript = e.results[0][0].transcript
       setInputText(transcript)
       setIsListening(false)
-      setTimeout(() => handleSendMessage(transcript), 300)
+      setVoiceStatus("processing")
+      setTimeout(() => {
+        handleSendMessage(transcript)
+        setVoiceStatus("idle")
+      }, 500)
     }
-    recognitionRef.current.onerror = () => setIsListening(false)
-    recognitionRef.current.onend = () => setIsListening(false)
-  }, [])
+    recognitionRef.current.onerror = () => {
+      setIsListening(false)
+      setVoiceStatus("idle")
+    }
+    recognitionRef.current.onend = () => {
+      setIsListening(false)
+      if (voiceStatus === "listening") {
+        setVoiceStatus("idle")
+      }
+    }
+  }, [voiceStatus])
 
   const detectEmotion = (text: string): "happy" | "sad" | "neutral" | "excited" => {
     const happyWords = ["খুশি", "ভালো", "চমৎকার", "দারুণ", "অসাধারণ", "হাসি"]
@@ -115,6 +129,7 @@ export default function RealtimeChatPage() {
 
   const generateAIResponse = async (userMessage: string, userEmotion: "happy" | "sad" | "neutral" | "excited") => {
     setIsGenerating(true)
+    setVoiceStatus("processing")
     const messageId = addMessage("", false, "neutral", true)
 
     try {
@@ -136,9 +151,12 @@ export default function RealtimeChatPage() {
 
       // Update the message with detected emotion
       setMessages((prev) => prev.map((msg) => (msg.id === messageId ? { ...msg, emotion: aiEmotion } : msg)))
+
+      setVoiceStatus("idle")
     } catch (error) {
       console.error("AI generation error:", error)
       updateMessage(messageId, "দুঃখিত, কিছু সমস্যা হয়েছে। আবার চেষ্টা করুন।", false)
+      setVoiceStatus("idle")
     } finally {
       setIsGenerating(false)
     }
@@ -160,6 +178,7 @@ export default function RealtimeChatPage() {
   const startSpeechRecognition = () => {
     if (recognitionRef.current) {
       setIsListening(true)
+      setVoiceStatus("listening")
       recognitionRef.current.start()
     }
   }
@@ -167,12 +186,16 @@ export default function RealtimeChatPage() {
   const speakText = (text: string) => {
     if ("speechSynthesis" in window) {
       setIsSpeaking(true)
+      setVoiceStatus("speaking")
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = "bn-BD"
       utterance.rate = 0.9
       utterance.pitch = 1.0
       utterance.volume = 1.0
-      utterance.onend = () => setIsSpeaking(false)
+      utterance.onend = () => {
+        setIsSpeaking(false)
+        setVoiceStatus("idle")
+      }
       speechSynthesis.speak(utterance)
     }
   }
@@ -181,6 +204,7 @@ export default function RealtimeChatPage() {
     if ("speechSynthesis" in window) {
       speechSynthesis.cancel()
       setIsSpeaking(false)
+      setVoiceStatus("idle")
     }
   }
 
@@ -211,7 +235,7 @@ export default function RealtimeChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-900 via-red-900 to-pink-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-orange-900 via-red-900 to-pink-900 relative overflow-hidden font-bangla">
       {/* Animated Background */}
       <div className="absolute inset-0">
         <motion.div
@@ -228,6 +252,11 @@ export default function RealtimeChatPage() {
         />
       </div>
 
+      {/* Voice Status Overlay */}
+      <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+        <VoiceStatus status={voiceStatus} />
+      </div>
+
       {/* Header */}
       <motion.div
         className="relative z-10 bg-gradient-to-r from-orange-900/90 to-red-900/90 backdrop-blur-xl border-b border-white/20 shadow-2xl"
@@ -235,25 +264,25 @@ export default function RealtimeChatPage() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8 }}
       >
-        <div className="max-w-6xl mx-auto flex items-center gap-4 p-6">
+        <div className="max-w-6xl mx-auto flex items-center gap-4 p-4 md:p-6">
           <Link href="/">
             <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 transition-all duration-300">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
           <div className="bg-gradient-to-r from-orange-500 to-red-500 p-3 rounded-2xl shadow-xl">
-            <MessageCircle className="w-8 h-8 text-white" />
+            <MessageCircle className="w-6 h-6 md:w-8 md:h-8 text-white" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">রিয়েলটাইম চ্যাট</h1>
-            <p className="text-orange-200 text-sm">তাৎক্ষণিক AI সহায়তা পান</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg md:text-2xl font-bold text-white truncate">রিয়েলটাইম চ্যাট</h1>
+            <p className="text-orange-200 text-xs md:text-sm">তাৎক্ষণিক AI সহায়তা পান</p>
           </div>
-          <div className="ml-auto flex gap-2">
-            <Badge className="bg-gradient-to-r from-green-400 to-emerald-500 text-white">
+          <div className="flex gap-2">
+            <Badge className="bg-gradient-to-r from-green-400 to-emerald-500 text-white text-xs">
               <Zap className="w-3 h-3 mr-1" />
               অনলাইন
             </Badge>
-            <Badge className="bg-gradient-to-r from-purple-400 to-pink-500 text-white">
+            <Badge className="hidden md:flex bg-gradient-to-r from-purple-400 to-pink-500 text-white text-xs">
               <Brain className="w-3 h-3 mr-1" />
               স্মার্ট AI
             </Badge>
@@ -261,31 +290,31 @@ export default function RealtimeChatPage() {
         </div>
       </motion.div>
 
-      <div className="relative z-10 max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-120px)]">
+      <div className="relative z-10 max-w-6xl mx-auto p-3 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6 h-[calc(100vh-120px)]">
         {/* Quick Replies Sidebar */}
         <motion.div
-          className="lg:col-span-1 space-y-6"
+          className="lg:col-span-1 space-y-4 md:space-y-6 order-2 lg:order-1"
           initial={{ x: -100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <Card className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 shadow-2xl">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2 text-white">
-                <Zap className="w-5 h-5 text-orange-400" />
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg flex items-center gap-2 text-white">
+                <Zap className="w-4 h-4 md:w-5 md:h-5 text-orange-400" />
                 দ্রুত প্রশ্ন
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2 md:space-y-3">
               {quickReplies.map((reply, index) => (
                 <motion.div key={index} whileHover={{ scale: 1.02, x: 5 }} whileTap={{ scale: 0.98 }}>
                   <Button
                     variant="ghost"
-                    className="w-full text-left h-auto p-4 text-sm text-white/90 hover:bg-orange-500/20 hover:text-white transition-all duration-300 rounded-xl border border-white/10 hover:border-orange-400/50"
+                    className="w-full text-left h-auto p-3 md:p-4 text-xs md:text-sm text-white/90 hover:bg-orange-500/20 hover:text-white transition-all duration-300 rounded-xl border border-white/10 hover:border-orange-400/50"
                     onClick={() => handleSendMessage(reply)}
                   >
-                    <MessageCircle className="w-4 h-4 mr-2 text-orange-400" />
-                    {reply}
+                    <MessageCircle className="w-3 h-3 md:w-4 md:h-4 mr-2 text-orange-400 flex-shrink-0" />
+                    <span className="truncate">{reply}</span>
                   </Button>
                 </motion.div>
               ))}
@@ -294,15 +323,15 @@ export default function RealtimeChatPage() {
 
           {/* Emotion Status */}
           <Card className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 shadow-2xl">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2 text-white">
-                <Heart className="w-5 h-5 text-pink-400" />
+            <CardHeader className="pb-3 md:pb-4">
+              <CardTitle className="text-base md:text-lg flex items-center gap-2 text-white">
+                <Heart className="w-4 h-4 md:w-5 md:h-5 text-pink-400" />
                 আবেগ স্ট্যাটাস
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-center">
-                <div className="text-4xl mb-2">{getEmotionIcon(userEmotion)}</div>
+                <div className="text-3xl md:text-4xl mb-2">{getEmotionIcon(userEmotion)}</div>
                 <p className={`text-sm font-medium ${getEmotionColor(userEmotion)}`}>
                   {userEmotion === "happy"
                     ? "খুশি"
@@ -319,15 +348,15 @@ export default function RealtimeChatPage() {
 
         {/* Chat Area */}
         <motion.div
-          className="lg:col-span-3"
+          className="lg:col-span-3 order-1 lg:order-2"
           initial={{ x: 100, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.4 }}
         >
           <Card className="h-full flex flex-col bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 shadow-2xl">
             {/* Messages */}
-            <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
-              <div className="space-y-6">
+            <ScrollArea className="flex-1 p-3 md:p-6" ref={scrollAreaRef}>
+              <div className="space-y-4 md:space-y-6">
                 <AnimatePresence>
                   {messages.map((message) => (
                     <motion.div
@@ -338,10 +367,10 @@ export default function RealtimeChatPage() {
                       transition={{ duration: 0.4, type: "spring" }}
                       className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
                     >
-                      <div className="flex items-start gap-3 max-w-[85%]">
+                      <div className="flex items-start gap-2 md:gap-3 max-w-[85%]">
                         {!message.isUser && (
                           <motion.div
-                            className="bg-gradient-to-r from-orange-500 to-red-500 p-2 rounded-full flex-shrink-0 shadow-lg"
+                            className="bg-gradient-to-r from-orange-500 to-red-500 p-2 rounded-full flex-shrink-0 shadow-lg relative"
                             animate={{ rotate: message.isGenerating ? 360 : 0 }}
                             transition={{
                               duration: 2,
@@ -349,7 +378,13 @@ export default function RealtimeChatPage() {
                               ease: "linear",
                             }}
                           >
-                            <MessageCircle className="w-5 h-5 text-white" />
+                            <MessageCircle className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                            {message.isGenerating && (
+                              <VoiceWaveform
+                                isActive={true}
+                                className="absolute -bottom-2 left-1/2 transform -translate-x-1/2"
+                              />
+                            )}
                           </motion.div>
                         )}
                         {message.isUser && (
@@ -357,11 +392,11 @@ export default function RealtimeChatPage() {
                             className="bg-gradient-to-r from-blue-500 to-purple-500 p-2 rounded-full flex-shrink-0 shadow-lg order-2"
                             whileHover={{ scale: 1.1 }}
                           >
-                            <User className="w-5 h-5 text-white" />
+                            <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
                           </motion.div>
                         )}
                         <div
-                          className={`p-5 rounded-2xl shadow-xl relative ${
+                          className={`p-3 md:p-5 rounded-2xl shadow-xl relative ${
                             message.isUser
                               ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white"
                               : "bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm text-white border border-white/20"
@@ -369,10 +404,12 @@ export default function RealtimeChatPage() {
                         >
                           {/* Emotion indicator */}
                           {message.emotion && (
-                            <div className="absolute -top-2 -right-2 text-lg">{getEmotionIcon(message.emotion)}</div>
+                            <div className="absolute -top-2 -right-2 text-base md:text-lg">
+                              {getEmotionIcon(message.emotion)}
+                            </div>
                           )}
 
-                          <div className="flex items-center gap-2 mb-3">
+                          <div className="flex items-center gap-2 mb-2 md:mb-3">
                             <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
                               {message.isUser ? "আপনি" : "বাংলার গুরু"}
                             </Badge>
@@ -387,25 +424,31 @@ export default function RealtimeChatPage() {
                             </span>
                           </div>
 
-                          <p className="text-sm leading-relaxed">
+                          <p className="text-xs md:text-sm leading-relaxed">
                             {message.isGenerating ? "আমি আপনার জন্য উত্তর তৈরি করছি..." : message.text}
                           </p>
 
                           {!message.isUser && !message.isGenerating && (
-                            <div className="flex gap-2 mt-4">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-3 text-xs hover:bg-white/20 text-white/80 hover:text-white transition-all duration-300"
-                                onClick={() => (isSpeaking ? stopSpeaking() : speakText(message.text))}
-                              >
-                                {isSpeaking ? (
-                                  <VolumeX className="w-3 h-3 mr-1" />
-                                ) : (
-                                  <Volume2 className="w-3 h-3 mr-1" />
-                                )}
-                                {isSpeaking ? "থামান" : "শুনুন"}
-                              </Button>
+                            <div className="flex gap-2 mt-3 md:mt-4">
+                              <div className="relative">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 md:h-8 px-2 md:px-3 text-xs hover:bg-white/20 text-white/80 hover:text-white transition-all duration-300"
+                                  onClick={() => (isSpeaking ? stopSpeaking() : speakText(message.text))}
+                                >
+                                  {isSpeaking ? (
+                                    <VolumeX className="w-3 h-3 mr-1" />
+                                  ) : (
+                                    <Volume2 className="w-3 h-3 mr-1" />
+                                  )}
+                                  {isSpeaking ? "থামান" : "শুনুন"}
+                                </Button>
+                                <VoiceFeedback
+                                  isSpeaking={isSpeaking}
+                                  className="absolute inset-0 pointer-events-none"
+                                />
+                              </div>
                             </div>
                           )}
                         </div>
@@ -417,34 +460,41 @@ export default function RealtimeChatPage() {
             </ScrollArea>
 
             {/* Input Area */}
-            <div className="p-6 border-t border-white/20 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex gap-3">
+            <div className="p-3 md:p-6 border-t border-white/20 bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-sm">
+              <div className="space-y-3 md:space-y-4">
+                <div className="flex gap-2 md:gap-3">
                   <Input
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     placeholder="আপনার বার্তা লিখুন..."
-                    className="flex-1 bg-white/10 border-white/20 focus:border-orange-400 text-white placeholder:text-white/60 backdrop-blur-sm"
+                    className="flex-1 bg-white/10 border-white/20 focus:border-orange-400 text-white placeholder:text-white/60 backdrop-blur-sm text-sm md:text-base"
                     onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
                   />
-                  <Button
-                    onClick={startSpeechRecognition}
-                    disabled={isListening}
-                    className={`p-3 ${
-                      isListening
-                        ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                        : "bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90"
-                    } transition-all duration-300 shadow-lg`}
-                  >
-                    {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                  </Button>
+                  <div className="relative">
+                    <Button
+                      onClick={startSpeechRecognition}
+                      disabled={isListening}
+                      className={`p-2 md:p-3 ${
+                        isListening
+                          ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                          : "bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90"
+                      } transition-all duration-300 shadow-lg`}
+                    >
+                      {isListening ? (
+                        <MicOff className="w-4 h-4 md:w-5 md:h-5" />
+                      ) : (
+                        <Mic className="w-4 h-4 md:w-5 md:h-5" />
+                      )}
+                    </Button>
+                    <VoiceFeedback isListening={isListening} className="absolute inset-0 pointer-events-none" />
+                  </div>
                   <Button
                     onClick={() => handleSendMessage()}
                     disabled={!inputText.trim() || isGenerating}
-                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg disabled:opacity-50 px-6"
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg disabled:opacity-50 px-4 md:px-6"
                   >
-                    <Send className="w-5 h-5 mr-2" />
-                    পাঠান
+                    <Send className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
+                    <span className="hidden md:inline">পাঠান</span>
                   </Button>
                 </div>
                 {isListening && (
@@ -454,9 +504,10 @@ export default function RealtimeChatPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                   >
-                    <p className="text-sm text-orange-200 animate-pulse flex items-center justify-center gap-2">
-                      <Mic className="w-4 h-4" />
+                    <p className="text-xs md:text-sm text-orange-200 animate-pulse flex items-center justify-center gap-2">
+                      <Mic className="w-3 h-3 md:w-4 md:h-4" />
                       আপনার কথা শুনছি...
+                      <VoiceWaveform isActive={true} className="ml-2" />
                     </p>
                   </motion.div>
                 )}
