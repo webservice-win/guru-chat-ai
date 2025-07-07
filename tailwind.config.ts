@@ -20,7 +20,8 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        bangla: ["var(--font-bangla)", "Noto Sans Bengali", "sans-serif"],
+        adorsholipi: ["var(--font-adorsholipi)", "Noto Sans Bengali", "SolaimanLipi", "sans-serif"],
+        bangla: ["var(--font-adorsholipi)", "Noto Sans Bengali", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -71,67 +72,63 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "float-gentle": {
+          "0%, 100%": {
+            transform: "translateY(0px)",
+          },
+          "50%": {
+            transform: "translateY(-10px)",
+          },
+        },
+        "pulse-glow": {
+          "0%, 100%": {
+            boxShadow: "0 0 20px rgba(59, 130, 246, 0.3)",
+          },
+          "50%": {
+            boxShadow: "0 0 40px rgba(59, 130, 246, 0.6)",
+          },
+        },
+        "gradient-shift": {
+          "0%": {
+            backgroundPosition: "0% 50%",
+          },
+          "50%": {
+            backgroundPosition: "100% 50%",
+          },
+          "100%": {
+            backgroundPosition: "0% 50%",
+          },
+        },
+        "voice-wave": {
+          "0%, 100%": {
+            height: "4px",
+            opacity: "0.7",
+          },
+          "50%": {
+            height: "24px",
+            opacity: "1",
+          },
+        },
         "voice-pulse": {
           "0%, 100%": {
             transform: "scale(1)",
-            opacity: "0.7",
+            opacity: "0.8",
           },
           "50%": {
             transform: "scale(1.1)",
             opacity: "1",
           },
         },
-        "voice-wave": {
-          "0%, 100%": {
-            height: "4px",
+        "shimmer": {
+          "0%": {
+            backgroundPosition: "-200px 0",
           },
-          "50%": {
-            height: "20px",
+          "100%": {
+            backgroundPosition: "calc(200px + 100%) 0",
           },
         },
         "fade-in": {
           "0%": {
             opacity: "0",
             transform: "translateY(10px)",
-          },
-          "100%": {
-            opacity: "1",
-            transform: "translateY(0)",
-          },
-        },
-        "slide-in": {
-          "0%": {
-            transform: "translateX(-100%)",
-          },
-          "100%": {
-            transform: "translateX(0)",
-          },
-        },
-      },
-      animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        "voice-pulse": "voice-pulse 1.5s ease-in-out infinite",
-        "voice-wave": "voice-wave 0.5s ease-in-out infinite",
-        "fade-in": "fade-in 0.3s ease-out",
-        "slide-in": "slide-in 0.3s ease-out",
-      },
-      spacing: {
-        "safe-top": "env(safe-area-inset-top)",
-        "safe-bottom": "env(safe-area-inset-bottom)",
-        "safe-left": "env(safe-area-inset-left)",
-        "safe-right": "env(safe-area-inset-right)",
-      },
-      screens: {
-        xs: "475px",
-        "3xl": "1600px",
-      },
-      backdropBlur: {
-        xs: "2px",
-      },
-    },
-  },
-  plugins: [require("tailwindcss-animate")],
-} satisfies Config
-
-export default config
+          },\

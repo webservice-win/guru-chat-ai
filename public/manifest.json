@@ -1,0 +1,27 @@
+{
+  "name": "বাংলার গুরু - উন্নত AI চ্যাটবট",
+  "short_name": "বাংলার গুরু",
+  "description": "বাংলা ভাষায় সবচেয়ে উন্নত AI সহায়ক",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["productivity", "education", "utilities"],
+  "lang": "bn",
+  "dir": "ltr"
+}

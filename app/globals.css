@@ -28,7 +28,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
@@ -65,77 +65,271 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Custom Bangla font utilities */
-.font-bangla {
-  font-family: var(--font-bangla), "Noto Sans Bengali", sans-serif;
-  font-feature-settings: "liga" 1, "calt" 1;
+/* Adorsholipi Font Utilities */
+.font-adorsholipi {
+  font-family: var(--font-adorsholipi), "Noto Sans Bengali", "SolaimanLipi", sans-serif;
+  font-feature-settings: "liga" 1, "calt" 1, "kern" 1;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Mobile-first responsive typography */
-.text-responsive-sm {
-  font-size: clamp(0.75rem, 2vw, 0.875rem);
+/* Enhanced Typography for Bangla */
+.bangla-text {
+  font-family: var(--font-adorsholipi), "Noto Sans Bengali", sans-serif;
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+  word-spacing: 0.05em;
 }
 
-.text-responsive-base {
-  font-size: clamp(0.875rem, 2.5vw, 1rem);
+.bangla-heading {
+  font-family: var(--font-adorsholipi), "Noto Sans Bengali", sans-serif;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
 }
 
-.text-responsive-lg {
-  font-size: clamp(1rem, 3vw, 1.125rem);
+/* Professional UI Enhancements */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
 }
 
-.text-responsive-xl {
-  font-size: clamp(1.125rem, 3.5vw, 1.25rem);
+.glass-morphism-dark {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
-.text-responsive-2xl {
-  font-size: clamp(1.25rem, 4vw, 1.5rem);
-}
-
-.text-responsive-3xl {
-  font-size: clamp(1.5rem, 5vw, 1.875rem);
-}
-
-/* Line clamp utilities for mobile */
-.line-clamp-1 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-}
-
-.line-clamp-2 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.line-clamp-3 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
-
-/* Touch-friendly interactions */
-@media (hover: none) and (pointer: coarse) {
-  .hover\:scale-105:hover {
-    transform: none;
+/* Advanced Animations */
+@keyframes float-gentle {
+  0%,
+  100% {
+    transform: translateY(0px);
   }
-
-  .hover\:bg-opacity-90:hover {
-    background-color: inherit;
+  50% {
+    transform: translateY(-10px);
   }
 }
 
-/* Reduced motion for accessibility */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.6);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes voice-wave {
+  0%,
+  100% {
+    height: 4px;
+    opacity: 0.7;
+  }
+  50% {
+    height: 24px;
+    opacity: 1;
+  }
+}
+
+@keyframes voice-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.animate-float-gentle {
+  animation: float-gentle 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+.animate-voice-wave {
+  animation: voice-wave 0.6s ease-in-out infinite;
+}
+
+.animate-voice-pulse {
+  animation: voice-pulse 1.5s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Professional Button Styles */
+.btn-professional {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+}
+
+.btn-professional::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-professional:hover::before {
+  left: 100%;
+}
+
+.btn-professional:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
+}
+
+/* Enhanced Card Styles */
+.card-professional {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+}
+
+.card-professional:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Voice Visualization */
+.voice-visualizer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 40px;
+}
+
+.voice-bar {
+  width: 3px;
+  background: linear-gradient(to top, #3b82f6, #8b5cf6);
+  border-radius: 2px;
+  animation: voice-wave 0.6s ease-in-out infinite;
+}
+
+.voice-bar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.voice-bar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.voice-bar:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.voice-bar:nth-child(5) {
+  animation-delay: 0.4s;
+}
+.voice-bar:nth-child(6) {
+  animation-delay: 0.5s;
+}
+.voice-bar:nth-child(7) {
+  animation-delay: 0.6s;
+}
+.voice-bar:nth-child(8) {
+  animation-delay: 0.7s;
+}
+
+/* Responsive Design Enhancements */
+@media (max-width: 768px) {
+  .bangla-text {
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+
+  .bangla-heading {
+    font-size: 1.1rem;
+    line-height: 1.3;
+  }
+
+  .glass-morphism {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .card-professional:hover {
+    transform: translateY(-4px) scale(1.01);
+  }
+
+  .btn-professional:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (max-width: 480px) {
+  .bangla-text {
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .bangla-heading {
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .voice-visualizer {
+    height: 30px;
+  }
+
+  .voice-bar {
+    width: 2px;
+  }
+}
+
+/* Accessibility Improvements */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -147,86 +341,90 @@
   }
 }
 
-/* Safe area handling for mobile devices */
-@supports (padding: max(0px)) {
-  .safe-area-inset-top {
-    padding-top: max(1rem, env(safe-area-inset-top));
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .glass-morphism {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #000;
   }
 
-  .safe-area-inset-bottom {
-    padding-bottom: max(1rem, env(safe-area-inset-bottom));
-  }
-
-  .safe-area-inset-left {
-    padding-left: max(1rem, env(safe-area-inset-left));
-  }
-
-  .safe-area-inset-right {
-    padding-right: max(1rem, env(safe-area-inset-right));
+  .glass-morphism-dark {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #fff;
   }
 }
 
-/* Custom scrollbar for better mobile experience */
+/* Focus Styles for Accessibility */
+.focus-visible:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(59, 130, 246, 0.7);
 }
 
-/* Voice feedback animations */
-@keyframes voice-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.7;
+/* Loading States */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Professional Gradients */
+.gradient-professional {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gradient-success {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.gradient-warning {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.gradient-error {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
+}
+
+/* Text Selection */
+::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: inherit;
+}
+
+::-moz-selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: inherit;
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
   }
-  50% {
-    transform: scale(1.1);
-    opacity: 1;
-  }
-}
 
-.voice-pulse {
-  animation: voice-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes voice-wave {
-  0%,
-  100% {
-    height: 4px;
-  }
-  50% {
-    height: 20px;
-  }
-}
-
-.voice-wave {
-  animation: voice-wave 0.5s ease-in-out infinite;
-}
-
-/* Improved focus states for accessibility */
-.focus-visible\:ring-2:focus-visible {
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: 2px;
-}
-
-/* Better button touch targets on mobile */
-@media (max-width: 768px) {
-  button,
-  .btn {
-    min-height: 44px;
-    min-width: 44px;
+  body {
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #000;
+    background: #fff;
   }
 }
