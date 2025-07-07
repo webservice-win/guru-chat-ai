@@ -1,20 +1,22 @@
 import type React from "react"
 import type { Metadata } from "next"
-import localFont from "next/font/local"
+import { Noto_Sans_Bengali, Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 
-// Load Adorsholipi font locally
-const adorsholipi = localFont({
-  src: [
-    { path: "./fonts/Adorsholipi-Regular.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/Adorsholipi-Medium.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/Adorsholipi-SemiBold.woff2", weight: "600", style: "normal" },
-    { path: "./fonts/Adorsholipi-Bold.woff2", weight: "700", style: "normal" },
-  ],
-  variable: "--font-adorsholipi",
+// Load fonts from Google Fonts
+const notoSansBengali = Noto_Sans_Bengali({
+  subsets: ["bengali"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-bangla",
   display: "swap",
-  fallback: ["Noto Sans Bengali", "sans-serif"],
+})
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-inter",
+  display: "swap",
 })
 
 export const metadata: Metadata = {
@@ -54,12 +56,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="bn" className={adorsholipi.variable}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
-      <body className={`${adorsholipi.className} antialiased font-adorsholipi`}>
+    <html lang="bn" className={`${notoSansBengali.variable} ${inter.variable}`}>
+      <body className={`${notoSansBengali.className} antialiased font-bangla`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>
