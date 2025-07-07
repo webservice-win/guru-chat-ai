@@ -1,12 +1,23 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Mic, Square, Settings } from "lucide-react"
-import { motion } from "framer-motion"
-import { toast } from "sonner"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Progress } from "@/components/ui/progress"
+import {
+  Mic,
+  MicOff,
+  Download,
+  Copy,
+  Settings,
+  AudioWaveformIcon as Waveform,
+  Languages,
+  Clock,
+  FileText,
+} from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 
 interface TranscriptionSegment {
   id: string
@@ -14,364 +25,465 @@ interface TranscriptionSegment {
   confidence: number
   timestamp: Date
   duration: number
-  isInterim: boolean
+  language: "bn" | "en" | "mixed"
+  speaker?: string
 }
 
-interface TranscriptionSession {
-  id: string
-  name: string
-  segments: TranscriptionSegment[]
-  startTime: Date
-  endTime?: Date
-  totalDuration: number
-  wordCount: number
-  averageConfidence: number
+interface TranscriptionSettings {
+  language: "bn-BD" | "en-US" | "auto"
+  punctuation: boolean
+  timestamps: boolean
+  speakerDetection: boolean
+  confidenceThreshold: number
 }
 
 export function RealTimeTranscription() {
-  const [isRecording, setIsRecording] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [currentSession, setCurrentSession] = useState<TranscriptionSession | null>(null)
-  const [sessions, setSessions] = useState<TranscriptionSession[]>([])
-  const [liveText, setLiveText] = useState("")
-  const [confidence, setConfidence] = useState(0)
+  const [isListening, setIsListening] = useState(false)
+  const [currentText, setCurrentText] = useState("")
+  const [segments, setSegments] = useState<TranscriptionSegment[]>([])
+  const [settings, setSettings] = useState<TranscriptionSettings>({
+    language: "bn-BD",
+    punctuation: true,
+    timestamps: true,
+    speakerDetection: false,
+    confidenceThreshold: 0.7,
+  })
   const [audioLevel, setAudioLevel] = useState(0)
-  const [selectedLanguage, setSelectedLanguage] = useState("bn-BD")
-  const [autoSave, setAutoSave] = useState(true)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const recognitionRef = useRef<any>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
-  const animationFrameRef = useRef<number>()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Initialize Speech Recognition
   useEffect(() => {
     if (typeof window === "undefined") return
 
     const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognitionClass) {
-      toast.error("আপনার ব্রাউজার স্পিচ রিকগনিশন সাপোর্ট করে না")
-      return
-    }
+    if (!SpeechRecognitionClass) return
 
-    const recognition = new SpeechRecognitionClass()
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = selectedLanguage
-    recognition.maxAlternatives = 3
+    recognitionRef.current = new SpeechRecognitionClass()
+    recognitionRef.current.lang = settings.language
+    recognitionRef.current.continuous = true
+    recognitionRef.current.interimResults = true
 
-    recognition.onstart = () => {
-      setIsRecording(true)
-      setIsProcessing(false)
-    }
-
-    recognition.onresult = (event: any) => {
+    recognitionRef.current.onresult = (event: any) => {
       let interimTranscript = ""
       let finalTranscript = ""
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript
-        const confidence = event.results[i][0].confidence || 0.8
+        const confidence = event.results[i][0].confidence
 
         if (event.results[i].isFinal) {
           finalTranscript += transcript
-          addTranscriptionSegment(transcript, confidence, false)
+
+          // Add to segments
+          const segment: TranscriptionSegment = {
+            id: Date.now().toString(),
+            text: transcript.trim(),
+            confidence: confidence || 0.9,
+            timestamp: new Date(),
+            duration: 0,
+            language: detectLanguage(transcript),
+            speaker: settings.speakerDetection ? "Speaker 1" : undefined,
+          }
+
+          if (segment.confidence >= settings.confidenceThreshold) {
+            setSegments((prev) => [...prev, segment])
+          }
         } else {
           interimTranscript += transcript
         }
       }
 
-      setLiveText(interimTranscript)
-      setConfidence(event.results[event.results.length - 1]?.[0]?.confidence * 100 || 80)
+      setCurrentText(interimTranscript)
+      setIsProcessing(false)
     }
 
-    recognition.onerror = (event: any) => {
+    recognitionRef.current.onstart = () => {
+      setIsListening(true)
+      startAudioLevelMonitoring()
+    }
+
+    recognitionRef.current.onend = () => {
+      setIsListening(false)
+      setCurrentText("")
+      stopAudioLevelMonitoring()
+    }
+
+    recognitionRef.current.onerror = (event: any) => {
       console.error("Speech recognition error:", event.error)
-      setIsRecording(false)
+      setIsListening(false)
       setIsProcessing(false)
-      toast.error("স্পিচ রিকগনিশনে সমস্যা হয়েছে")
     }
 
-    recognition.onend = () => {
-      setIsRecording(false)
-      setIsProcessing(false)
-      setLiveText("")
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+      stopAudioLevelMonitoring()
     }
+  }, [settings])
 
-    recognitionRef.current = recognition
-  }, [selectedLanguage])
+  const detectLanguage = (text: string): "bn" | "en" | "mixed" => {
+    const bengaliPattern = /[\u0980-\u09FF]/
+    const englishPattern = /[a-zA-Z]/
 
-  // Audio level monitoring
-  const startAudioMonitoring = useCallback(async () => {
+    const hasBengali = bengaliPattern.test(text)
+    const hasEnglish = englishPattern.test(text)
+
+    if (hasBengali && hasEnglish) return "mixed"
+    if (hasBengali) return "bn"
+    return "en"
+  }
+
+  const startAudioLevelMonitoring = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const audioContext = new AudioContext()
-      const analyser = audioContext.createAnalyser()
-      const microphone = audioContext.createMediaStreamSource(stream)
+      audioContextRef.current = new AudioContext()
+      analyserRef.current = audioContextRef.current.createAnalyser()
 
-      analyser.fftSize = 256
-      microphone.connect(analyser)
+      const source = audioContextRef.current.createMediaStreamSource(stream)
+      source.connect(analyserRef.current)
 
-      audioContextRef.current = audioContext
-      analyserRef.current = analyser
+      analyserRef.current.fftSize = 256
+      const bufferLength = analyserRef.current.frequencyBinCount
+      const dataArray = new Uint8Array(bufferLength)
 
       const updateAudioLevel = () => {
-        if (!analyserRef.current) return
-
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-        analyserRef.current.getByteFrequencyData(dataArray)
-
-        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
-        setAudioLevel(Math.min(100, (average / 128) * 100))
-
-        animationFrameRef.current = requestAnimationFrame(updateAudioLevel)
+        if (analyserRef.current && isListening) {
+          analyserRef.current.getByteFrequencyData(dataArray)
+          const average = dataArray.reduce((a, b) => a + b) / bufferLength
+          setAudioLevel(average)
+          requestAnimationFrame(updateAudioLevel)
+        }
       }
 
       updateAudioLevel()
     } catch (error) {
       console.error("Error accessing microphone:", error)
-      toast.error("মাইক্রোফোন অ্যাক্সেস করতে সমস্যা হয়েছে")
     }
-  }, [])
+  }
 
-  const stopAudioMonitoring = useCallback(() => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-    }
+  const stopAudioLevelMonitoring = () => {
     if (audioContextRef.current) {
       audioContextRef.current.close()
+      audioContextRef.current = null
     }
     setAudioLevel(0)
-  }, [])
+  }
 
-  const addTranscriptionSegment = useCallback(
-    (text: string, confidence: number, isInterim: boolean) => {
-      if (!currentSession) return
-
-      const segment: TranscriptionSegment = {
-        id: Date.now().toString(),
-        text,
-        confidence,
-        timestamp: new Date(),
-        duration: 0,
-        isInterim,
-      }
-
-      setCurrentSession((prev) => {
-        if (!prev) return null
-        return {
-          ...prev,
-          segments: [...prev.segments, segment],
-          wordCount: prev.wordCount + text.split(" ").length,
-          averageConfidence: (prev.averageConfidence + confidence) / 2,
-        }
-      })
-    },
-    [currentSession],
-  )
-
-  const startRecording = useCallback(async () => {
-    if (!recognitionRef.current) return
-
-    const session: TranscriptionSession = {
-      id: Date.now().toString(),
-      name: `সেশন ${new Date().toLocaleString("bn-BD")}`,
-      segments: [],
-      startTime: new Date(),
-      totalDuration: 0,
-      wordCount: 0,
-      averageConfidence: 0,
-    }
-
-    setCurrentSession(session)
-    setIsProcessing(true)
-
-    try {
-      await startAudioMonitoring()
+  const startTranscription = () => {
+    if (recognitionRef.current) {
+      setIsProcessing(true)
       recognitionRef.current.start()
-    } catch (error) {
-      console.error("Error starting recording:", error)
-      setIsProcessing(false)
-      toast.error("রেকর্ডিং শুরু করতে সমস্যা হয়েছে")
     }
-  }, [startAudioMonitoring])
+  }
 
-  const stopRecording = useCallback(() => {
+  const stopTranscription = () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop()
     }
-    stopAudioMonitoring()
+  }
 
-    if (currentSession) {
-      const endTime = new Date()
-      const duration = endTime.getTime() - currentSession.startTime.getTime()
+  const clearTranscription = () => {
+    setSegments([])
+    setCurrentText("")
+  }
 
-      const completedSession: TranscriptionSession = {
-        ...currentSession,
-        endTime,
-        totalDuration: duration,
-      }
+  const exportTranscription = () => {
+    const text = segments
+      .map((segment) => {
+        let line = segment.text
+        if (settings.timestamps) {
+          line = `[${segment.timestamp.toLocaleTimeString("bn-BD")}] ${line}`
+        }
+        if (segment.speaker) {
+          line = `${segment.speaker}: ${line}`
+        }
+        return line
+      })
+      .join("\n")
 
-      setSessions((prev) => [completedSession, ...prev])
-
-      if (autoSave) {
-        const savedSessions = localStorage.getItem("transcription-sessions")
-        const existing = savedSessions ? JSON.parse(savedSessions) : []
-        localStorage.setItem("transcription-sessions", JSON.stringify([completedSession, ...existing]))
-      }
-
-      setCurrentSession(null)
-      toast.success("ট্রান্সক্রিপশন সংরক্ষিত হয়েছে")
-    }
-  }, [currentSession, autoSave, stopAudioMonitoring])
-
-  const exportTranscription = useCallback((session: TranscriptionSession) => {
-    const text = session.segments.map((s) => s.text).join(" ")
-    const blob = new Blob([text], { type: "text/plain" })
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${session.name}.txt`
+    a.download = `transcription-${new Date().toISOString().split("T")[0]}.txt`
     a.click()
     URL.revokeObjectURL(url)
-    toast.success("ট্রান্সক্রিপশন ডাউনলোড হয়েছে")
-  }, [])
-
-  const copyToClipboard = useCallback((text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success("ক্লিপবোর্ডে কপি হয়েছে")
-  }, [])
-
-  const formatDuration = (ms: number) => {
-    const seconds = Math.floor(ms / 1000)
-    const minutes = Math.floor(seconds / 60)
-    const hours = Math.floor(minutes / 60)
-    return `${hours}:${(minutes % 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`
   }
 
-  const AudioVisualizer = () => (
-    <div className="flex items-center justify-center gap-1 h-12">
-      {[...Array(8)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="w-1 bg-gradient-to-t from-blue-500 to-purple-500 rounded-full"
-          animate={{
-            height: isRecording ? `${Math.max(4, (audioLevel / 100) * 48 + Math.random() * 16)}px` : "4px",
-          }}
-          transition={{
-            duration: 0.1,
-            delay: i * 0.05,
-          }}
-        />
-      ))}
-    </div>
-  )
+  const copyToClipboard = () => {
+    const text = segments.map((s) => s.text).join(" ")
+    navigator.clipboard.writeText(text)
+  }
+
+  const getLanguageLabel = (lang: "bn" | "en" | "mixed") => {
+    const labels = { bn: "বাংলা", en: "English", mixed: "মিশ্র" }
+    return labels[lang]
+  }
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 0.9) return "text-green-600"
+    if (confidence >= 0.7) return "text-yellow-600"
+    return "text-red-600"
+  }
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    }
+  }, [segments, currentText])
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">রিয়েল-টাইম ট্রান্সক্রিপশন</h2>
-          <p className="text-gray-600">লাইভ স্পিচ টু টেক্সট রূপান্তর এবং ট্রান্সক্রিপশন ম্যানেজমেন্ট</p>
-        </div>
+      {/* Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Waveform className="w-5 h-5" />
+            রিয়েল-টাইম ট্রান্সক্রিপশন
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={isListening ? stopTranscription : startTranscription}
+              className={`${
+                isListening ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"
+              } transition-all duration-300`}
+            >
+              {isListening ? (
+                <>
+                  <MicOff className="w-4 h-4 mr-2" />
+                  থামান
+                </>
+              ) : (
+                <>
+                  <Mic className="w-4 h-4 mr-2" />
+                  শুরু করুন
+                </>
+              )}
+            </Button>
 
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedLanguage}
-            onChange={(e) => setSelectedLanguage(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="bn-BD">বাংলা (বাংলাদেশ)</option>
-            <option value="bn-IN">বাংলা (ভারত)</option>
-            <option value="en-US">English (US)</option>
-            <option value="hi-IN">हिन्दी</option>
-          </select>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAutoSave(!autoSave)}
-            className={autoSave ? "bg-green-50 text-green-700" : ""}
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            অটো সেভ {autoSave ? "চালু" : "বন্ধ"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Recording Interface */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Live Recording */}
-        <Card className="bg-gradient-to-br from-white to-gray-50 border-0 shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mic className="w-5 h-5 text-blue-600" />
-              লাইভ রেকর্ডিং
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Audio Visualizer */}
-            <div className="bg-gray-100 rounded-xl p-6">
-              <AudioVisualizer />
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">অডিও লেভেল:</span>
+              <Progress value={audioLevel} className="w-24 h-2" />
             </div>
 
-            {/* Recording Controls */}
-            <div className="flex justify-center">
-              <Button
-                size="lg"
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isProcessing}
-                className={`${
-                  isRecording
-                    ? "bg-red-500 hover:bg-red-600 animate-pulse"
-                    : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                } text-white shadow-lg px-8 py-4 text-lg`}
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    প্রস্তুত হচ্ছে...
-                  </>
-                ) : isRecording ? (
-                  <>
-                    <Square className="w-5 h-5 mr-2" />
-                    রেকর্ডিং বন্ধ করুন
-                  </>
-                ) : (
-                  <>
-                    <Mic className="w-5 h-5 mr-2" />
-                    রেকর্ডিং শুরু করুন
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Live Stats */}
-            {isRecording && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-2 gap-4"
-              >
-                <div className="text-center p-3 bg-white rounded-lg border">
-                  <div className="text-2xl font-bold text-blue-600">{Math.round(confidence)}%</div>
-                  <div className="text-sm text-gray-600">নির্ভুলতা</div>
-                </div>
-                <div className="text-center p-3 bg-white rounded-lg border">
-                  <div className="text-2xl font-bold text-green-600">{Math.round(audioLevel)}%</div>
-                  <div className="text-sm text-gray-600">অডিও লেভেল</div>
-                </div>
-              </motion.div>
+            {isListening && (
+              <Badge className="bg-red-500 animate-pulse">
+                <Mic className="w-3 h-3 mr-1" />
+                শুনছি...
+              </Badge>
             )}
 
-            {/* Live Text */}
-            {(liveText || isRecording) && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-3"
-              >
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-red-500 text\
+            {isProcessing && <Badge className="bg-yellow-500">প্রক্রিয়াকরণ...</Badge>}
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={clearTranscription}>
+              <FileText className="w-3 h-3 mr-1" />
+              পরিষ্কার করুন
+            </Button>
+            <Button variant="outline" size="sm" onClick={copyToClipboard} disabled={segments.length === 0}>
+              <Copy className="w-3 h-3 mr-1" />
+              কপি করুন
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportTranscription} disabled={segments.length === 0}>
+              <Download className="w-3 h-3 mr-1" />
+              ডাউনলোড
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Live Transcription */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <Card className="h-[500px]">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>ট্রান্সক্রিপশন</span>
+                <Badge variant="secondary">{segments.length} সেগমেন্ট</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px] pr-4" ref={scrollAreaRef}>
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {segments.map((segment) => (
+                      <motion.div
+                        key={segment.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {settings.timestamps && (
+                              <Badge variant="outline" className="text-xs">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {segment.timestamp.toLocaleTimeString("bn-BD")}
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              <Languages className="w-3 h-3 mr-1" />
+                              {getLanguageLabel(segment.language)}
+                            </Badge>
+                            {segment.speaker && (
+                              <Badge variant="outline" className="text-xs">
+                                {segment.speaker}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className={`text-xs font-medium ${getConfidenceColor(segment.confidence)}`}>
+                            {Math.round(segment.confidence * 100)}%
+                          </span>
+                        </div>
+                        <p className="text-sm leading-relaxed">{segment.text}</p>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+
+                  {/* Current/Interim Text */}
+                  {currentText && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-300"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-blue-500 text-xs animate-pulse">লাইভ</Badge>
+                      </div>
+                      <p className="text-sm leading-relaxed text-blue-800 italic">{currentText}</p>
+                    </motion.div>
+                  )}
+
+                  {segments.length === 0 && !currentText && (
+                    <div className="text-center py-12 text-gray-500">
+                      <Mic className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>মাইক্রোফোন চালু করে কথা বলা শুরু করুন</p>
+                      <p className="text-sm">আপনার কথা এখানে রিয়েল-টাইমে দেখা যাবে</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Settings Panel */}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                সেটিংস
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">ভাষা</label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={settings.language}
+                  onChange={(e) => setSettings({ ...settings, language: e.target.value as any })}
+                >
+                  <option value="bn-BD">বাংলা</option>
+                  <option value="en-US">English</option>
+                  <option value="auto">অটো ডিটেক্ট</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  আত্মবিশ্বাস থ্রেশহোল্ড: {Math.round(settings.confidenceThreshold * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1"
+                  step="0.1"
+                  value={settings.confidenceThreshold}
+                  onChange={(e) => setSettings({ ...settings, confidenceThreshold: Number.parseFloat(e.target.value) })}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.punctuation}
+                    onChange={(e) => setSettings({ ...settings, punctuation: e.target.checked })}
+                  />
+                  <span className="text-sm">যতিচিহ্ন যোগ করুন</span>
+                </label>
+
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.timestamps}
+                    onChange={(e) => setSettings({ ...settings, timestamps: e.target.checked })}
+                  />
+                  <span className="text-sm">টাইমস্ট্যাম্প দেখান</span>
+                </label>
+
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.speakerDetection}
+                    onChange={(e) => setSettings({ ...settings, speakerDetection: e.target.checked })}
+                  />
+                  <span className="text-sm">স্পিকার সনাক্তকরণ</span>
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Statistics */}
+          <Card>
+            <CardHeader>
+              <CardTitle>পরিসংখ্যান</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">মোট সেগমেন্ট:</span>
+                <span className="font-medium">{segments.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">মোট শব্দ:</span>
+                <span className="font-medium">
+                  {segments.reduce((acc, seg) => acc + seg.text.split(" ").length, 0)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">গড় আত্মবিশ্বাস:</span>
+                <span className="font-medium">
+                  {segments.length > 0
+                    ? Math.round((segments.reduce((acc, seg) => acc + seg.confidence, 0) / segments.length) * 100)
+                    : 0}
+                  %
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">বাংলা:</span>
+                <span className="font-medium">
+                  {Math.round(
+                    (segments.filter((s) => s.language === "bn").length / Math.max(segments.length, 1)) * 100,
+                  )}
+                  %
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
